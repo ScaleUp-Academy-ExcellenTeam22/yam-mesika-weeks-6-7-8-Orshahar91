@@ -1,4 +1,5 @@
 from termcolor import colored
+from dataclasses import dataclass
 
 
 class PostOffice:
@@ -10,81 +11,62 @@ class PostOffice:
     :param list usernames: Users for which we should create PO Boxes.
     """
 
-    def __init__(self, usernames):
+    def __init__(self, usernames: set[str]):
         self.message_id = 0
-        self.boxes = {user: [] for user in usernames}
+        self.boxes: dict[str, list[str]] = {user: [] for user in usernames}
 
-    def send_message(self, message):
+    def send_message(self, message) -> int:
         """
         Send a message to a recipient.
-        :param message: instance of Message class
-        :return: message id
+        :param message: instance of Message.
+        :return: Message id.
         """
         user_box = self.boxes[message.recipient]
         self.message_id = self.message_id + 1
-        if message.urgent:
-            user_box.insert(0, message)
-        else:
-            user_box.append(message)
+        user_box.insert(0, message) if message.urgent else user_box.append(message)
         return self.message_id
 
-    def read_inbox(self, username, num_of_messages=-1):
+    def read_inbox(self, username, num_of_messages=-1) -> list["Message"]:
         """
-
+        Read the inbox of specific user.
         :param str username: The username of the person's inbox.
         :param int num_of_messages: Number of messages to read.
-        :return: The user's unread messages
+        :return: The user's unread messages.
         """
         user_box = self.boxes[username]
-        user_inbox_messages = []
-        if num_of_messages != -1:
-            for message in user_box[:num_of_messages]:
-                if not message.read:
-                    user_inbox_messages.append(message)
-                    message.read = True
-            return user_inbox_messages
-        else:
-            for message in user_box:
-                message.read = True
-            return user_box
+        num_of_messages = len(user_box) if num_of_messages == -1 else num_of_messages
+        unread_messages = [message for message in user_box[:num_of_messages] if not message.read]
 
-    def search_inbox(self, username, query):
+        for message in unread_messages:
+            message.read = True
+
+        return unread_messages
+
+    def search_inbox(self, username: str, query: str) -> list["Message"]:
         """
         :param str username: The username of the person's inbox.
         :param str query: The string that need to be found in the messages.
         :return: The messages that contain the provided query.
         """
-        user_box = self.boxes[username]
-        message_with_query = []
-        for message in user_box:
-            if query in (message.message_body or message.title):
-                message_with_query.append(message)
+        user_box: list["Message"] = self.boxes[username]
+        message_with_query = [message for message in user_box
+                              if query in message.message_body or query in message.message_title]
         return message_with_query
 
 
+@dataclass
 class Message:
-    """A Message class. Holds the message information.
-    """
-
-    def __init__(self, sender, recipient, message_title, message_body, urgent=False, read=False):
-        """
-        :param sender: Sender's username
-        :param recipient: Recipient username
-        :param message_title: Message title
-        :param message_body: Message body
-        :param urgent: Flag for urgent message
-        :param read: Flag for read/unread
-        """
-        self.sender = sender
-        self.recipient = recipient
-        self.message_title = message_title
-        self.message_body = message_body
-        self.urgent = urgent
-        self.read = read
+    """A Message class, to keep the message information."""
+    sender: str
+    recipient: str
+    message_title: str
+    message_body: str
+    urgent: bool = False
+    read: bool = False
 
     def __len__(self):
         """
-        :return: Length of the message body
+        :return: Length of the message body.
         """
         return len(self.message_body)
 
@@ -92,17 +74,27 @@ class Message:
         """
         :return: String of the Message class containing the params.
         """
-        message = "Message: " + self.message_title + "\nSender: " + self.sender + "\nRecipient: " + self.recipient + \
-                  "\nBody: " + self.message_body
+        boundary = "\n######################\n"
+        message = boundary + "Message: " + self.message_title + "\nSender: " + self.sender + "\nRecipient: " + \
+            self.recipient + "\nBody: " + self.message_body + boundary
         return message if not self.urgent else colored(message, 'red')
 
 
 def show_example():
     """Show example of using the PostOffice class and Message class."""
-    users = ('Newman', 'Mr. Peanutbutter')
-    PostOffice(users)
-    msg = Message("Mr. Peanutbutter", "Newman", "New Title", "New Body")
-    print(msg)
+    users = {"Newman", "Jerry"}
+    post_office = PostOffice(users)
+    message_for_newman = Message("Jerry", "Newman", "Postman", "Hello Newman", True)
+    message_for_jerry = Message("Newman", "Jerry", "Seinfeld", "Hello Jerry")
+    post_office.send_message(message_for_newman)
+    post_office.send_message(message_for_jerry)
+    message = post_office.read_inbox("Newman")
+    print(*message)
+    message = post_office.read_inbox("Jerry")
+    print(*message)
+    search = post_office.search_inbox("Newman", "Hello")
+    print(*search)
 
 
-show_example()
+if __name__ == "__main__":
+    show_example()
